@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>N-Queens Visualizer</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 30px 20px;
+      color: #333;
+      background: linear-gradient(270deg, #d1c4e9, #b2dfdb, #f8bbd0);
+      background-size: 600% 600%;
+      animation: gradientShift 15s ease infinite;
+    }
+
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      color: #4b0082;
+      text-shadow: 1px 1px 2px #fff;
+    }
+
+    .controls {
+      background: #ffffffcc;
+      padding: 15px 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 25px;
+    }
+
+    .controls label {
+      font-weight: 600;
+    }
+
+    .controls input {
+      width: 60px;
+      padding: 6px 8px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    .controls button {
+      background-color: #6a1b9a;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .controls button:hover {
+      background-color: #7b1fa2;
+    }
+
+    #board {
+      display: grid;
+      gap: 4px;
+      padding: 10px;
+      background: #ffffffcc;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .cell {
+      width: 45px;
+      height: 45px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: bold;
+      background-color: #fff;
+      border-radius: 6px;
+      transition: background-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .cell.queen {
+      background-color: #d1c4e9;
+      color: #4a0072;
+      transform: scale(1.1);
+    }
+
+    .cell.try {
+      background-color: #fff176 !important;
+      transform: scale(1.05);
+    }
+
+    .cell:nth-child(even) {
+      background-color: #f8f9fa;
+    }
+
+    .cell:nth-child(odd) {
+      background-color: #eceff1;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>N-Queens Visualizer</h1>
+
+  <div class="controls">
+    <label for="n">Board Size (N):</label>
+    <input type="number" id="n" min="4" max="12" value="8" />
+    <button onclick="startNQueens()">Solve N-Queens</button>
+  </div>
+
+  <div id="board"></div>
+
+  <script>
+    async function startNQueens() {
+      const n = parseInt(document.getElementById("n").value);
+      generateBoard(n);
+      await solveNQueens([], 0, n);
+    }
+
+    function generateBoard(n) {
+      const board = document.getElementById("board");
+      board.innerHTML = "";
+      board.style.gridTemplateColumns = `repeat(${n}, 45px)`;
+
+      for (let row = 0; row < n; row++) {
+        for (let col = 0; col < n; col++) {
+          const cell = document.createElement("div");
+          cell.className = "cell";
+          cell.id = `cell-${row}-${col}`;
+          board.appendChild(cell);
+        }
+      }
+    }
+
+    async function solveNQueens(queens, row, n) {
+      if (row === n) return true;
+
+      for (let col = 0; col < n; col++) {
+        highlightTry(row, col);
+        await sleep(150);
+
+        if (isSafe(queens, row, col)) {
+          placeQueen(row, col);
+          queens.push(col);
+
+          if (await solveNQueens(queens, row + 1, n)) return true;
+
+          queens.pop();
+          removeQueen(row, col);
+        }
+
+        unhighlightTry(row, col);
+      }
+
+      return false;
+    }
+
+    function isSafe(queens, row, col) {
+      for (let i = 0; i < row; i++) {
+        const qCol = queens[i];
+        if (qCol === col || qCol === col - (row - i) || qCol === col + (row - i)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    function placeQueen(row, col) {
+      const cell = document.getElementById(`cell-${row}-${col}`);
+      cell.textContent = "♛";
+      cell.classList.add("queen");
+    }
+
+    function removeQueen(row, col) {
+      const cell = document.getElementById(`cell-${row}-${col}`);
+      cell.textContent = "";
+      cell.classList.remove("queen");
+    }
+
+    function highlightTry(row, col) {
+      document.getElementById(`cell-${row}-${col}`).classList.add("try");
+    }
+
+    function unhighlightTry(row, col) {
+      document.getElementById(`cell-${row}-${col}`).classList.remove("try");
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+  </script>
+</body>
+</html>

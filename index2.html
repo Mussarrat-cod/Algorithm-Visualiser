@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dijkstra Visualizer</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      color: #333;
+      text-align: center;
+      background: linear-gradient(-45deg, #e0f7fa, #e1bee7, #fce4ec, #f3e5f5);
+      background-size: 400% 400%;
+      animation: gradientMove 15s ease infinite;
+    }
+
+    @keyframes gradientMove {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    h2 {
+      margin: 20px 0;
+      font-size: 32px;
+      color: #4a148c;
+      text-shadow: 1px 1px 2px #ffffffcc;
+    }
+
+    .controls {
+      background: #ffffffcc;
+      padding: 15px 20px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+      border-radius: 12px;
+      display: inline-block;
+      margin-bottom: 20px;
+    }
+
+    .controls select,
+    .controls button {
+      font-size: 16px;
+      padding: 8px 12px;
+      margin: 5px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      transition: all 0.3s ease;
+    }
+
+    .controls button {
+      background-color: #7b1fa2;
+      color: white;
+      cursor: pointer;
+    }
+
+    .controls button:hover {
+      background-color: #4a148c;
+    }
+
+    canvas {
+      display: block;
+      margin: 0 auto 20px;
+      border: 2px solid #4a148c;
+      background-color: white;
+      border-radius: 10px;
+      cursor: crosshair;
+    }
+
+    #output {
+      font-size: 18px;
+      font-weight: bold;
+      color: #00695c;
+      margin-top: 20px;
+      background: #ffffffcc;
+      padding: 10px 20px;
+      border-radius: 8px;
+      display: inline-block;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Dijkstra's Algorithm Visualizer</h2>
+
+  <div class="controls">
+    <button onclick="mode='addNode'">➕ Add Node</button>
+    <button onclick="mode='addEdge'">🔗 Add Edge</button>
+    <select id="startNode"></select>
+    <select id="endNode"></select>
+    <button onclick="runDijkstra()">🚀 Run Dijkstra</button>
+    <button onclick="reset()">🔄 Reset</button>
+  </div>
+
+  <canvas id="canvas" width="900" height="500"></canvas>
+  <div id="output"></div>
+
+  <!-- Your script remains unchanged -->
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let nodes = [], edges = [], nodeCount = 0;
+    let selectedNode = null, mode = 'addNode';
+
+    canvas.addEventListener('click', (e) => {
+      const x = e.offsetX;
+      const y = e.offsetY;
+
+      if (mode === 'addNode') {
+        const id = String.fromCharCode(65 + nodeCount++);
+        nodes.push({ id, x, y });
+        updateDropdowns();
+        draw();
+      } else if (mode === 'addEdge') {
+        const node = getClickedNode(x, y);
+        if (node) {
+          if (!selectedNode) {
+            selectedNode = node;
+          } else {
+            if (selectedNode !== node) {
+              const weight = prompt('Enter edge weight:');
+              if (!isNaN(weight) && weight !== null) {
+                edges.push({ from: selectedNode.id, to: node.id, weight: Number(weight) });
+                edges.push({ from: node.id, to: selectedNode.id, weight: Number(weight) });
+              }
+            }
+            selectedNode = null;
+            draw();
+          }
+        }
+      }
+    });
+
+    function getClickedNode(x, y) {
+      return nodes.find(n => Math.hypot(n.x - x, n.y - y) < 20);
+    }
+
+    function updateDropdowns() {
+      const startSel = document.getElementById('startNode');
+      const endSel = document.getElementById('endNode');
+      startSel.innerHTML = endSel.innerHTML = '';
+      nodes.forEach(n => {
+        startSel.appendChild(new Option(n.id, n.id));
+        endSel.appendChild(new Option(n.id, n.id));
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let edge of edges) {
+        const from = nodes.find(n => n.id === edge.from);
+        const to = nodes.find(n => n.id === edge.to);
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.strokeStyle = '#aaa';
+        ctx.stroke();
+        const mx = (from.x + to.x) / 2;
+        const my = (from.y + to.y) / 2;
+        ctx.fillStyle = '#000';
+        ctx.fillText(edge.weight, mx, my);
+      }
+
+      for (let node of nodes) {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, 20, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.strokeStyle = '#7b1fa2';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#000';
+        ctx.fillText(node.id, node.x - 5, node.y + 5);
+      }
+
+      ctx.lineWidth = 1;
+    }
+
+    function reset() {
+      nodes = [];
+      edges = [];
+      nodeCount = 0;
+      selectedNode = null;
+      updateDropdowns();
+      draw();
+      document.getElementById('output').textContent = '';
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function runDijkstra() {
+      const start = document.getElementById('startNode').value;
+      const end = document.getElementById('endNode').value;
+
+      const graph = {};
+      for (let node of nodes) graph[node.id] = [];
+      for (let edge of edges) {
+        graph[edge.from].push({ node: edge.to, weight: edge.weight });
+      }
+
+      const dist = {}, prev = {}, visited = new Set();
+      for (let node in graph) {
+        dist[node] = Infinity;
+        prev[node] = null;
+      }
+      dist[start] = 0;
+
+      const pq = [{ node: start, dist: 0 }];
+
+      while (pq.length > 0) {
+        pq.sort((a, b) => a.dist - b.dist);
+        const { node: current } = pq.shift();
+        if (visited.has(current)) continue;
+        visited.add(current);
+
+        highlightNode(current, '#ffca28');
+        await sleep(400);
+
+        for (let neighbor of graph[current]) {
+          const alt = dist[current] + neighbor.weight;
+          if (alt < dist[neighbor.node]) {
+            dist[neighbor.node] = alt;
+            prev[neighbor.node] = current;
+            pq.push({ node: neighbor.node, dist: alt });
+          }
+        }
+      }
+
+      let path = [];
+      for (let at = end; at; at = prev[at]) path.unshift(at);
+
+      const outputDiv = document.getElementById("output");
+
+      if (path[0] !== start) {
+        outputDiv.textContent = "No path found.";
+        return;
+      }
+
+      draw();
+      for (let i = 0; i < path.length - 1; i++) {
+        const from = nodes.find(n => n.id === path[i]);
+        const to = nodes.find(n => n.id === path[i + 1]);
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.strokeStyle = '#00c853';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        ctx.lineWidth = 1;
+      }
+
+      const pathStr = path.join(" → ");
+      const totalCost = dist[end];
+      outputDiv.innerHTML = `<strong>Path:</strong> ${pathStr}<br><strong>Total Cost:</strong> ${totalCost}`;
+    }
+
+    function highlightNode(id, color) {
+      const node = nodes.find(n => n.id === id);
+      if (!node) return;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, 24, 0, Math.PI * 2);
+      ctx.strokeStyle = color;
+      ctx.stroke();
+    }
+  </script>
+
+</body>
+</html>
+
+<!--
+</head>
+<body>
+
+  <h2>Dijkstra's Algorithm Visualizer</h2>
+
+  <div class="controls">
+    <button onclick="mode='addNode'">Add Node</button>
+    <button onclick="mode='addEdge'">Add Edge</button>
+    <select id="startNode"></select>
+    <select id="endNode"></select>
+    <button onclick="runDijkstra()">Run Dijkstra</button>
+   <!-- <button onclick="runKruskals()">Run Kruskal's MST</button>
+<button onclick="runPrims()">Run Prim's MST</button>
+
+    <button onclick="reset()">Reset</button>
+    <div id="output" style="margin-top: 15px; font-size: 18px; color: blue;"></div>
+
+  </div>
+
+  <canvas id="canvas" width="800" height="500"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let nodes = [], edges = [], nodeCount = 0;
+    let selectedNode = null, mode = 'addNode';
+
+    canvas.addEventListener('click', (e) => {
+      const x = e.offsetX;
+      const y = e.offsetY;
+
+      if (mode === 'addNode') {
+        const id = String.fromCharCode(65 + nodeCount++);
+        nodes.push({ id, x, y });
+        updateDropdowns();
+        draw();
+      } else if (mode === 'addEdge') {
+        const node = getClickedNode(x, y);
+        if (node) {
+          if (!selectedNode) {
+            selectedNode = node;
+          } else {
+            if (selectedNode !== node) {
+              const weight = prompt('Enter weight:');
+              if (!isNaN(weight) && weight !== null) {
+                edges.push({ from: selectedNode.id, to: node.id, weight: Number(weight) });
+                edges.push({ from: node.id, to: selectedNode.id, weight: Number(weight) }); // Undirected
+              }
+            }
+            selectedNode = null;
+            draw();
+          }
+        }
+      }
+    });
+
+    function getClickedNode(x, y) {
+      return nodes.find(n => Math.hypot(n.x - x, n.y - y) < 20);
+    }
+
+    function updateDropdowns() {
+      const startSel = document.getElementById('startNode');
+      const endSel = document.getElementById('endNode');
+      startSel.innerHTML = endSel.innerHTML = '';
+      nodes.forEach(n => {
+        const opt1 = new Option(n.id, n.id);
+        const opt2 = new Option(n.id, n.id);
+        startSel.appendChild(opt1);
+        endSel.appendChild(opt2);
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw edges
+      for (let edge of edges) {
+        const from = nodes.find(n => n.id === edge.from);
+        const to = nodes.find(n => n.id === edge.to);
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.stroke();
+        const mx = (from.x + to.x) / 2;
+        const my = (from.y + to.y) / 2;
+        ctx.fillText(edge.weight, mx, my);
+      }
+
+      // Draw nodes
+      for (let node of nodes) {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, 20, 0, Math.PI * 2);
+        ctx.fillStyle = 'white';
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = 'black';
+        ctx.fillText(node.id, node.x - 5, node.y + 5);
+      }
+    }
+
+    function reset() {
+      nodes = [];
+      edges = [];
+      nodeCount = 0;
+      selectedNode = null;
+      updateDropdowns();
+      draw();
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function runDijkstra() {
+      const start = document.getElementById('startNode').value;
+      const end = document.getElementById('endNode').value;
+
+      const graph = {};
+      for (let node of nodes) graph[node.id] = [];
+      for (let edge of edges) {
+        graph[edge.from].push({ node: edge.to, weight: edge.weight });
+      }
+
+      const dist = {}, prev = {}, visited = new Set();
+      for (let node in graph) {
+        dist[node] = Infinity;
+        prev[node] = null;
+      }
+      dist[start] = 0;
+
+      const pq = [{ node: start, dist: 0 }];
+
+      while (pq.length > 0) {
+        pq.sort((a, b) => a.dist - b.dist);
+        const { node: current } = pq.shift();
+        if (visited.has(current)) continue;
+        visited.add(current);
+
+        highlightNode(current, 'yellow');
+        await sleep(400);
+
+        for (let neighbor of graph[current]) {
+          const alt = dist[current] + neighbor.weight;
+          if (alt < dist[neighbor.node]) {
+            dist[neighbor.node] = alt;
+            prev[neighbor.node] = current;
+            pq.push({ node: neighbor.node, dist: alt });
+          }
+        }
+      }
+
+      let path = [];
+      for (let at = end; at; at = prev[at]) path.unshift(at);
+
+      if (path[0] !== start) {
+        alert('No path found.');
+        return;
+      }
+
+      draw();
+      for (let i = 0; i < path.length - 1; i++) {
+        const from = nodes.find(n => n.id === path[i]);
+        const to = nodes.find(n => n.id === path[i + 1]);
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.strokeStyle = 'green';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'black';
+        await sleep(300);
+      }
+    }
+
+    function highlightNode(id, color) {
+      const node = nodes.find(n => n.id === id);
+      if (!node) return;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, 22, 0, Math.PI * 2);
+      ctx.strokeStyle = color;
+      ctx.stroke();
+      ctx.strokeStyle = 'black';
+    }
+async function runDijkstra() {
+  const start = document.getElementById('startNode').value;
+  const end = document.getElementById('endNode').value;
+
+  const graph = {};
+  for (let node of nodes) graph[node.id] = [];
+  for (let edge of edges) {
+    graph[edge.from].push({ node: edge.to, weight: edge.weight });
+  }
+
+  const dist = {}, prev = {}, visited = new Set();
+  for (let node in graph) {
+    dist[node] = Infinity;
+    prev[node] = null;
+  }
+  dist[start] = 0;
+
+  const pq = [{ node: start, dist: 0 }];
+
+  while (pq.length > 0) {
+    pq.sort((a, b) => a.dist - b.dist);
+    const { node: current } = pq.shift();
+    if (visited.has(current)) continue;
+    visited.add(current);
+
+    highlightNode(current, 'yellow');
+    await sleep(400);
+
+    for (let neighbor of graph[current]) {
+      const alt = dist[current] + neighbor.weight;
+      if (alt < dist[neighbor.node]) {
+        dist[neighbor.node] = alt;
+        prev[neighbor.node] = current;
+        pq.push({ node: neighbor.node, dist: alt });
+      }
+    }
+  }
+
+  let path = [];
+  for (let at = end; at; at = prev[at]) path.unshift(at);
+
+  const outputDiv = document.getElementById("output");
+
+  if (path[0] !== start) {
+    outputDiv.textContent = "No path found.";
+    return;
+  }
+
+  draw();
+  for (let i = 0; i < path.length - 1; i++) {
+    const from = nodes.find(n => n.id === path[i]);
+    const to = nodes.find(n => n.id === path[i + 1]);
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.strokeStyle = 'green';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'black';
+    await sleep(300);
+  }
+
+  const pathStr = path.join(" → ");
+  const totalCost = dist[end];
+  outputDiv.innerHTML = `<strong>Path:</strong> ${pathStr}<br><strong>Total Cost:</strong> ${totalCost}`;
+}
+
+  </script>
+
+</body>
+</html>
+-->
